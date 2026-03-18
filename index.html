@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>소방서 QR 출석관리 - 관리자</title>
+    <link rel="stylesheet" href="./assets/app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand" role="banner" aria-label="관리자 페이지">
+          <div class="brand-badge" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2s4.5 4 4.5 8.5S13.5 20 12 22c-1.5-2-4.5-7-4.5-11.5S12 2 12 2Z" stroke="white" stroke-width="1.8"/>
+              <path d="M12 8c1.7 1.5 2.4 3.3 2 5.2-.4 1.8-1.8 3.3-4 3.8 1.2-1.4 1.7-2.8 1.6-4.2-.2-1.7-1.2-3.2-1.6-4.8.7.3 1.3.6 2 1Z" fill="white" opacity=".85"/>
+            </svg>
+          </div>
+          <div>
+            소방서 QR 출석관리
+            <small>관리 페이지</small>
+          </div>
+        </div>
+        <div class="actions">
+          <div class="pill" title="Supabase 연결 상태">
+            <span id="connDot" class="dot"></span>
+            <span id="connText">연결 확인중…</span>
+          </div>
+          <button class="btn small ghost" id="btnHelp">설정/가이드</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="container">
+      <div class="grid">
+        <!-- Left: 교육관리공간 -->
+        <section class="card" aria-label="교육관리공간">
+          <div class="card-hd">
+            <div>
+              <h2>교육관리공간</h2>
+              <div class="sub">실시간 출석현황 · 부서별 통계</div>
+            </div>
+            <div class="row">
+              <select class="select" id="sessionSelect" style="min-width:220px">
+                <option value="">세션 선택…</option>
+              </select>
+              <button class="btn small" id="btnRefresh">새로고침</button>
+            </div>
+          </div>
+          <div class="card-bd">
+            <div class="kpi" id="kpis">
+              <div class="box">
+                <div class="label">현재 선택 세션</div>
+                <div class="value" id="kpiSession">-</div>
+              </div>
+              <div class="box">
+                <div class="label">총 출석</div>
+                <div class="value" id="kpiTotal">0</div>
+              </div>
+              <div class="box">
+                <div class="label">최근 출석</div>
+                <div class="value" id="kpiLast">-</div>
+              </div>
+            </div>
+
+            <div class="split">
+              <div class="card" style="box-shadow:none">
+                <div class="card-hd" style="border-bottom:1px solid var(--line)">
+                  <div>
+                    <h2 style="font-size:14px;margin:0">출석 현황 (실시간)</h2>
+                    <div class="sub">세션별 참석자 리스트</div>
+                  </div>
+                  <div class="row">
+                    <button class="btn small" id="btnExport">CSV 내보내기</button>
+                    <button class="btn small danger" id="btnClearSession">세션 삭제</button>
+                  </div>
+                </div>
+                <div class="card-bd" style="padding:12px">
+                  <table class="table" aria-label="출석 리스트">
+                    <thead>
+                      <tr>
+                        <th style="width:140px">시간</th>
+                        <th>이름</th>
+                        <th style="width:140px">부서</th>
+                      </tr>
+                    </thead>
+                    <tbody id="attTbody">
+                      <tr><td colspan="3" class="hint">세션을 선택하면 출석이 표시됩니다.</td></tr>
+                    </tbody>
+                  </table>
+                  <div class="footer-note">팁: 출석 입력은 QR로만 받도록 되어있어 중복/오입력을 줄입니다.</div>
+                </div>
+              </div>
+
+              <div class="card" style="box-shadow:none">
+                <div class="card-hd" style="border-bottom:1px solid var(--line)">
+                  <div>
+                    <h2 style="font-size:14px;margin:0">부서별 출석 통계</h2>
+                    <div class="sub">부서별 인원수 막대차트</div>
+                  </div>
+                  <span class="tag" id="chartTag">-</span>
+                </div>
+                <div class="card-bd" style="padding:12px">
+                  <canvas id="deptChart" height="220" aria-label="부서별 출석 차트"></canvas>
+                  <div class="hint" style="margin-top:10px">
+                    부서명은 출석 입력 시 사용자가 적는 값 기준입니다. 예: “구급”, “구조”, “행정”
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: 교육생성공간 -->
+        <aside class="card" aria-label="교육생성공간">
+          <div class="card-hd">
+            <div>
+              <h2>교육생성공간</h2>
+              <div class="sub">세션 생성 · 고유 QR 자동 생성</div>
+            </div>
+            <button class="btn small primary" id="btnNew">세션 생성</button>
+          </div>
+          <div class="card-bd">
+            <div class="hint" style="margin-bottom:12px">
+              “세션 생성” 후 자동으로 QR이 만들어집니다. QR에 포함된 링크로 출석 페이지(`qrcheck.html`)가 열립니다.
+            </div>
+
+            <div class="card" style="box-shadow:none">
+              <div class="card-hd" style="border-bottom:1px solid var(--line)">
+                <div>
+                  <h2 style="font-size:14px;margin:0">선택된 세션 QR</h2>
+                  <div class="sub">인쇄/공유용</div>
+                </div>
+                <div class="row">
+                  <button class="btn small" id="btnCopyLink">링크 복사</button>
+                  <button class="btn small" id="btnOpenCheck">출석페이지 열기</button>
+                </div>
+              </div>
+              <div class="card-bd" style="padding:12px">
+                <div class="qrbox">
+                  <div id="qrcode"></div>
+                </div>
+                <div class="qrmeta">
+                  <div class="tag warn" id="qrStatus">세션을 선택하세요</div>
+                  <div class="mono" id="qrLink">-</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" style="box-shadow:none; margin-top:12px">
+              <div class="card-hd" style="border-bottom:1px solid var(--line)">
+                <div>
+                  <h2 style="font-size:14px;margin:0">최근 생성 세션</h2>
+                  <div class="sub">최신 8개</div>
+                </div>
+              </div>
+              <div class="card-bd" style="padding:12px">
+                <table class="table" aria-label="세션 목록">
+                  <thead>
+                    <tr>
+                      <th>날짜</th>
+                      <th>교육명</th>
+                      <th style="width:88px">선택</th>
+                    </tr>
+                  </thead>
+                  <tbody id="sessTbody">
+                    <tr><td colspan="3" class="hint">세션이 아직 없습니다. 먼저 생성해 주세요.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <!-- Modal: Create session -->
+    <div class="modal" id="mCreate" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="세션 생성">
+        <div class="modal-hd">
+          <h3>출석 세션 생성</h3>
+          <button class="x" data-close-modal="mCreate" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-bd">
+          <div class="field">
+            <label for="inDate">날짜</label>
+            <input class="input" id="inDate" type="date" />
+          </div>
+          <div class="field">
+            <label for="inTitle">교육명</label>
+            <input class="input" id="inTitle" type="text" placeholder="예: 3월 안전교육(심폐소생술)" maxlength="80" />
+            <div class="hint">생성 후 QR이 자동 생성됩니다.</div>
+          </div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn" data-close-modal="mCreate">취소</button>
+          <button class="btn primary" id="btnCreateDo">생성</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: Help -->
+    <div class="modal" id="mHelp" aria-hidden="true">
+      <div class="modal-card" role="dialog" aria-modal="true" aria-label="설정 가이드">
+        <div class="modal-hd">
+          <h3>설정/가이드</h3>
+          <button class="x" data-close-modal="mHelp" aria-label="닫기">✕</button>
+        </div>
+        <div class="modal-bd">
+          <div class="hint">
+            <b>1) Supabase 설정</b><br/>
+            이제 DB 없이 <b>브라우저 로컬 저장소(localStorage)</b>로 동작합니다.
+            <br/><br/>
+            <b>데이터 저장 위치</b><br/>
+            같은 브라우저/같은 기기에서만 출석 데이터가 유지됩니다.
+            <br/><br/>
+            <b>3) 운영 팁</b><br/>
+            관리자 페이지는 출석이 자동 갱신됩니다(같은 브라우저 탭/창 기준).
+          </div>
+        </div>
+        <div class="modal-ft">
+          <button class="btn primary" data-close-modal="mHelp">확인</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <div class="tone" aria-hidden="true"></div>
+      <div>
+        <div class="title">-</div>
+        <div class="msg">-</div>
+      </div>
+      <div class="bar">
+        <button class="btn small" onclick="document.getElementById('toast').classList.remove('show')">닫기</button>
+      </div>
+    </div>
+
+    <!-- deps -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="./assets/app.js"></script>
+    <script src="./assets/admin.js"></script>
+  </body>
+</html>
+
